@@ -7,6 +7,7 @@ import csv
 scope = 'user-library-modify playlist-modify-private'
 client_id = 'your-client-id'
 client_secret = 'your-client-secret'
+
 redirect_uri = 'http://localhost:8888' # Setup the call back you want to  
 
 def createTemporaryServer():
@@ -24,11 +25,11 @@ def createPlaylist(spManager,username):
 	playlist = spManager.user_playlist_create(username,playlist_name,False)
 	return playlist['id']
 
-def searchTrack(spManager,tracksList,name,artist,album=None):
+def searchTrack(spManager,tracksList,name,artist,album):
 	song_str = name + " by " + artist
 	print "Searching for " + song_str
 
-	if album is None:
+	if album == '':
 		res = spManager.search(q='artist:'+ artist + ' track:' + name,type="track")
 	else:
 		res = spManager.search(q='artist:'+ artist + ' track:' + name + ' album:' + album,type="track")
@@ -44,8 +45,27 @@ def searchTrack(spManager,tracksList,name,artist,album=None):
 	print song_str + ' added.'
 	return
 
+def csvParse(spManager,tracks):
+	filename = raw_input('Enter CSV File name:')
+	try:
+		parseFile = open(filename)
+	except IOError:
+		print "File Doesn't exist. Quitting script.."
+		sys.exit()
+	try:
+		reader = csv.reader(parseFile)
+		for row in reader:
+			print row
+			if row[0].strip() == '' or row[1].strip() == '':
+				print "Error in CSV! Missing data! Skipping row"
+			else:
+				if row[2].split() == '':
+					row[2] = ''
+				searchTrack(spManager,tracks,row[0],row[1],row[2])
+	finally:
+		parseFile.close()
 
-def main ():
+def main():
 	if len(sys.argv) > 1:
 		username = sys.argv[1]
 	else:
@@ -59,11 +79,8 @@ def main ():
 	if token:
 		tracks = []
 		spManager = spotipy.Spotify(auth=token)
-		n = raw_input("song:")
-		a = raw_input("artist:")
-		x = raw_input("album:")
-		searchTrack(spManager,tracks,n,a,x)
-		
+		csvParse(spManager,tracks)
+
 		if len(tracks) > 0:
 			playlistID = createPlaylist(spManager,username)
 			spManager.user_playlist_add_tracks(username,playlistID,tracks)
