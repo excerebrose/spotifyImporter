@@ -3,11 +3,14 @@ import spotipy
 import spotipy.util as util
 import subprocess as sp
 import csv
+import eyed3
+import glob
+
+paths = glob.glob('music/*.mp3')
 
 scope = 'user-library-modify playlist-modify-private'
-client_id = 'your-client-id'
-client_secret = 'your-client-secret'
-
+#client_id = 'your-client-id'
+#client_secret = 'your-client-secret'
 redirect_uri = 'http://localhost:8888' # Setup the call back you want to  
 
 def createTemporaryServer():
@@ -45,8 +48,7 @@ def searchTrack(spManager,tracksList,name,artist,album):
 	print song_str + ' added.'
 	return
 
-def csvParse(spManager,tracks):
-	filename = raw_input('Enter CSV File name:')
+def csvParse(spManager,tracks,filename):
 	try:
 		parseFile = open(filename)
 	except IOError:
@@ -55,7 +57,6 @@ def csvParse(spManager,tracks):
 	try:
 		reader = csv.reader(parseFile)
 		for row in reader:
-			print row
 			if row[0].strip() == '' or row[1].strip() == '':
 				print "Error in CSV! Missing data! Skipping row"
 			else:
@@ -65,13 +66,32 @@ def csvParse(spManager,tracks):
 	finally:
 		parseFile.close()
 
+def generateCSVFile():
+	songDataList = []
+	for file in paths:
+		audioFile = eyed3.load(file)
+		title = audioFile.tag.title
+		artist = audioFile.tag.artist
+		album = audioFile.tag.album
+		songData = [title,artist,album]
+		songDataList.append(songData)
+	filename = raw_input("Enter a name for the CSV file:")
+	outputFile = open(filename,"wb")
+	try:
+		writer = csv.writer(outputFile)
+		for song in songDataList:
+			writer.writerow(song)
+	finally:
+		outputFile.close()
+	return filename
+
 def main():
 	if len(sys.argv) > 1:
 		username = sys.argv[1]
 	else:
 		print "Usage: %s username" % (sys.argv[0],)
 		sys.exit()
-
+	filename = generateCSVFile()
 	server = createTemporaryServer()
 	token = util.prompt_for_user_token(username, scope, client_id , client_secret,redirect_uri)
 	closeTemporaryServer(server)
@@ -79,7 +99,7 @@ def main():
 	if token:
 		tracks = []
 		spManager = spotipy.Spotify(auth=token)
-		csvParse(spManager,tracks)
+		csvParse(spManager,tracks,filename)
 
 		if len(tracks) > 0:
 			playlistID = createPlaylist(spManager,username)
